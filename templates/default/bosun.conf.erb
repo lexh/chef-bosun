@@ -1,1 +1,67 @@
 tsdbHost=<%=node['bosun']['tsdb_host']%>:<%=node['bosun']['tsdb_port']%>
+httpListen=<%=node['bosun']['http_listen']%>
+hostname=<%=node['bosun']['hostname']%><%=node['bosun']['http_listen']%>
+
+template generic {
+    body = `{{template "header" .}}
+    {{template "def" .}}
+
+    {{template "tags" .}}
+
+    {{template "computation" .}}`
+    subject = {{.Last.Status}}: {{replace .Alert.Name "." " " -1}}: on {{.Group.host}}
+}
+
+template def {
+    body = `<p><strong>Alert definition:</strong>
+    <table>
+        <tr>
+            <td>Name:</td>
+            <td>{{replace .Alert.Name "." " " -1}}</td></tr>
+        <tr>
+            <td>Warn:</td>
+            <td>{{.Alert.Warn}}</td></tr>
+        <tr>
+            <td>Crit:</td>
+            <td>{{.Alert.Crit}}</td></tr>
+    </table>`
+}
+
+template tags {
+    body = `<p><strong>Tags</strong>
+
+    <table>
+        {{range $k, $v := .Group}}
+            {{if eq $k "host"}}
+                <tr><td>{{$k}}:</td><td><a href="{{$.HostView $v}}">{{$v}}</a></td></tr>
+            {{else}}
+                <tr><td>{{$k}}:</td><td>{{$v}}</td></tr>
+            {{end}}
+        {{end}}
+    </table>`
+}
+
+template computation {
+    body = `
+    <p><strong>Computation</strong>
+
+    <table>
+        {{range .Computations}}
+            <tr><td><a href="{{$.Expr .Text}}">{{.Text}}</a>:</td><td>{{.Value}}</td></tr>
+        {{end}}
+    </table>`
+}
+
+template header {
+    body = `<p><a href="{{.Ack}}">Acknowledge alert</a>
+    <p><a href="{{.Rule}}">View the Rule + Template in the Bosun's Rule Page</a>
+    {{if .Alert.Vars.notes}}
+    <p>Notes: {{.Alert.Vars.notes}}
+    {{end}}`
+}
+
+alert test {
+  template = generic
+  $test = 5
+  crit = avg(q("sum:os.mem.percent_free{host=*}", "1h", ""))
+}
